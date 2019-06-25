@@ -22,7 +22,9 @@ import collections
 import csv
 import os
 import modeling
+import numpy as np
 import optimization
+import pandas as pd
 import tokenization
 import tensorflow as tf
 tf.enable_eager_execution()
@@ -236,6 +238,8 @@ class LivedoorProcessor(DataProcessor):
     def _create_examples(self, lines, set_type):
         """Creates examples for the training and dev sets."""
         examples = []
+        # sample
+        sample_labels = ['dokujo-tsushin', 'it-life-hack']
         for (i, line) in enumerate(lines):
             if i == 0:
                 idx_text = line.index('text')
@@ -244,8 +248,21 @@ class LivedoorProcessor(DataProcessor):
                 guid = "%s-%s" % (set_type, i)
                 text_a = tokenization.convert_to_unicode(line[idx_text])
                 label = tokenization.convert_to_unicode(line[idx_label])
+                if label not in sample_labels:
+                    continue
                 examples.append(
                     InputExample(guid=guid, text_a=text_a, text_b=None, label=label))
+                
+                # input_obj = InputExample(guid=guid, text_a=text_a, text_b=None, label=label)
+                # examples.append([guid, text_a, label])
+        print(len(examples))
+        import pdb; pdb.set_trace()
+        # examples = np.array(examples)
+        # df = pd.DataFrame(data=examples, columns=["guid", "text", "label"])
+        # print(df["label"].unique())
+        # print(len(df["label"].unique()))
+        # len(df[df["label"]=='dokujo-tsushin'])
+        # import pdb; pdb.set_trace()
         return examples
 
 
