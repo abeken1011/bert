@@ -233,13 +233,14 @@ class LivedoorProcessor(DataProcessor):
 
     def get_labels(self):
         """See base class."""
-        return ['dokujo-tsushin', 'it-life-hack', 'kaden-channel', 'livedoor-homme', 'movie-enter', 'peachy', 'smax', 'sports-watch', 'topic-news']
+        # return ['dokujo-tsushin', 'it-life-hack', 'kaden-channel', 'livedoor-homme', 'movie-enter', 'peachy', 'smax', 'sports-watch', 'topic-news']
+        return ['dokujo-tsushin', 'it-life-hack', 'kaden-channel']#, 'livedoor-homme', 'movie-enter', 'peachy', 'smax', 'sports-watch', 'topic-news']
 
     def _create_examples(self, lines, set_type):
         """Creates examples for the training and dev sets."""
         examples = []
         # sample
-        sample_labels = ['dokujo-tsushin', 'it-life-hack']
+        sample_labels = ['dokujo-tsushin', 'it-life-hack', 'kaden-channel']
         for (i, line) in enumerate(lines):
             if i == 0:
                 idx_text = line.index('text')
@@ -256,7 +257,7 @@ class LivedoorProcessor(DataProcessor):
                 # input_obj = InputExample(guid=guid, text_a=text_a, text_b=None, label=label)
                 # examples.append([guid, text_a, label])
         print(len(examples))
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
         # examples = np.array(examples)
         # df = pd.DataFrame(data=examples, columns=["guid", "text", "label"])
         # print(df["label"].unique())
