@@ -25,6 +25,7 @@ import modeling
 import numpy as np
 import optimization
 import pandas as pd
+import random
 import tokenization
 import tensorflow as tf
 tf.enable_eager_execution()
@@ -254,18 +255,8 @@ class LivedoorProcessor(DataProcessor):
                     continue
                 examples.append(
                     InputExample(guid=guid, text_a=text_a, text_b=None, label=label))
-                
-                # input_obj = InputExample(guid=guid, text_a=text_a, text_b=None, label=label)
-                # examples.append([guid, text_a, label])
-        # import pdb; pdb.set_trace()
-        """
-        examples = np.array(examples)
-        df = pd.DataFrame(data=examples, columns=["guid", "text", "label"])
-        print(df["label"].unique())
-        print(len(df["label"].unique()))
-        len(df[df["label"]=='dokujo-tsushin'])
-        import pdb; pdb.set_trace()
-        """
+
+        random.shuffle(examples)
         return examples
 
 
@@ -515,8 +506,15 @@ def create_model(bert_config, is_training, input_ids, input_mask, segment_ids,
 
         one_hot_labels = tf.one_hot(labels, depth=num_labels, dtype=tf.float32)
 
+        per_label_loss = -tf.reduce_sum(one_hot_labels * log_probs, axis=0)
+        tf.summary.scalar('per_loss_0', per_label_loss[0])
+        tf.summary.scalar('per_loss_1', per_label_loss[1])
+        tf.summary.scalar('per_loss_2', per_label_loss[2])
+
         per_example_loss = -tf.reduce_sum(one_hot_labels * log_probs, axis=-1)
+
         loss = tf.reduce_mean(per_example_loss)
+        tf.summary.scalar('loss', loss)
 
         predict = tf.argmax(probabilities, axis=-1)
 
@@ -578,35 +576,31 @@ def model_fn_builder(bert_config, num_labels, init_checkpoint, learning_rate,
             tf.logging.info("  name = %s, shape = %s%s", var.name, var.shape,
                             init_string)
 
-        def metric_fn(per_example_loss, label_ids, logits, is_real_example, op_type):
-            predictions = tf.argmax(logits, axis=-1, output_type=tf.int32)
-            accuracy = tf.metrics.accuracy(
-                labels=label_ids, predictions=predictions, weights=is_real_example)
-            loss = tf.metrics.mean(
-                values=per_example_loss, weights=is_real_example)
-            return {
-                op_type + "_accuracy": accuracy,
-                op_type + "_loss": loss,
-            }
-
         output_spec = None
         if mode == tf.estimator.ModeKeys.TRAIN:
 
             train_op = optimization.create_optimizer(
                 total_loss, learning_rate, num_train_steps, num_warmup_steps, use_tpu)
-            eval_metrics = (metric_fn,
-                            [per_example_loss, label_ids, logits, is_real_example, "train"])
 
             output_spec = tf.contrib.tpu.TPUEstimatorSpec(
                 mode=mode,
                 loss=total_loss,
                 train_op=train_op,
-                eval_metrics=eval_metrics,
                 scaffold_fn=scaffold_fn)
         elif mode == tf.estimator.ModeKeys.EVAL:
+            def metric_fn(per_example_loss, label_ids, logits, is_real_example):
+                predictions = tf.argmax(logits, axis=-1, output_type=tf.int32)
+                accuracy = tf.metrics.accuracy(
+                    labels=label_ids, predictions=predictions, weights=is_real_example)
+                loss = tf.metrics.mean(
+                    values=per_example_loss, weights=is_real_example)
+                return {
+                    "eval_accuracy": accuracy,
+                    "eval_loss": loss,
+                }
 
             eval_metrics = (metric_fn,
-                            [per_example_loss, label_ids, logits, is_real_example, "eval"])
+                            [per_example_loss, label_ids, logits, is_real_example])
             output_spec = tf.contrib.tpu.TPUEstimatorSpec(
                 mode=mode,
                 loss=total_loss,
