@@ -254,7 +254,18 @@ class LivedoorProcessor(DataProcessor):
                     continue
                 examples.append(
                     InputExample(guid=guid, text_a=text_a, text_b=None, label=label))
-
+                
+                # input_obj = InputExample(guid=guid, text_a=text_a, text_b=None, label=label)
+                # examples.append([guid, text_a, label])
+        # import pdb; pdb.set_trace()
+        """
+        examples = np.array(examples)
+        df = pd.DataFrame(data=examples, columns=["guid", "text", "label"])
+        print(df["label"].unique())
+        print(len(df["label"].unique()))
+        len(df[df["label"]=='dokujo-tsushin'])
+        import pdb; pdb.set_trace()
+        """
         return examples
 
 
