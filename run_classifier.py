@@ -234,6 +234,7 @@ class LivedoorProcessor(DataProcessor):
     def get_labels(self):
         """See base class."""
         # return ['dokujo-tsushin', 'it-life-hack', 'kaden-channel', 'livedoor-homme', 'movie-enter', 'peachy', 'smax', 'sports-watch', 'topic-news']
+        # sample
         return ['dokujo-tsushin', 'it-life-hack', 'kaden-channel']#, 'livedoor-homme', 'movie-enter', 'peachy', 'smax', 'sports-watch', 'topic-news']
 
     def _create_examples(self, lines, set_type):
@@ -253,17 +254,7 @@ class LivedoorProcessor(DataProcessor):
                     continue
                 examples.append(
                     InputExample(guid=guid, text_a=text_a, text_b=None, label=label))
-                
-                # input_obj = InputExample(guid=guid, text_a=text_a, text_b=None, label=label)
-                # examples.append([guid, text_a, label])
-        print(len(examples))
-        # import pdb; pdb.set_trace()
-        # examples = np.array(examples)
-        # df = pd.DataFrame(data=examples, columns=["guid", "text", "label"])
-        # print(df["label"].unique())
-        # print(len(df["label"].unique()))
-        # len(df[df["label"]=='dokujo-tsushin'])
-        # import pdb; pdb.set_trace()
+
         return examples
 
 
@@ -576,32 +567,35 @@ def model_fn_builder(bert_config, num_labels, init_checkpoint, learning_rate,
             tf.logging.info("  name = %s, shape = %s%s", var.name, var.shape,
                             init_string)
 
+        def metric_fn(per_example_loss, label_ids, logits, is_real_example, op_type):
+            predictions = tf.argmax(logits, axis=-1, output_type=tf.int32)
+            accuracy = tf.metrics.accuracy(
+                labels=label_ids, predictions=predictions, weights=is_real_example)
+            loss = tf.metrics.mean(
+                values=per_example_loss, weights=is_real_example)
+            return {
+                op_type + "_accuracy": accuracy,
+                op_type + "_loss": loss,
+            }
+
         output_spec = None
         if mode == tf.estimator.ModeKeys.TRAIN:
 
             train_op = optimization.create_optimizer(
                 total_loss, learning_rate, num_train_steps, num_warmup_steps, use_tpu)
+            eval_metrics = (metric_fn,
+                            [per_example_loss, label_ids, logits, is_real_example, "train"])
 
             output_spec = tf.contrib.tpu.TPUEstimatorSpec(
                 mode=mode,
                 loss=total_loss,
                 train_op=train_op,
+                eval_metrics=eval_metrics,
                 scaffold_fn=scaffold_fn)
         elif mode == tf.estimator.ModeKeys.EVAL:
 
-            def metric_fn(per_example_loss, label_ids, logits, is_real_example):
-                predictions = tf.argmax(logits, axis=-1, output_type=tf.int32)
-                accuracy = tf.metrics.accuracy(
-                    labels=label_ids, predictions=predictions, weights=is_real_example)
-                loss = tf.metrics.mean(
-                    values=per_example_loss, weights=is_real_example)
-                return {
-                    "eval_accuracy": accuracy,
-                    "eval_loss": loss,
-                }
-
             eval_metrics = (metric_fn,
-                            [per_example_loss, label_ids, logits, is_real_example])
+                            [per_example_loss, label_ids, logits, is_real_example, "eval"])
             output_spec = tf.contrib.tpu.TPUEstimatorSpec(
                 mode=mode,
                 loss=total_loss,
@@ -917,7 +911,6 @@ def main(_):
         golds = [id2label[label] for label in labels_all]
         assert len(preds) == len(golds)
         report = bio_classification_report(golds, preds)
-        print(report)
         output_report_file = os.path.join(FLAGS.output_dir, "report_test.txt")
         with open(output_report_file, 'w') as writer:
             writer.write(report)
