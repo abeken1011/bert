@@ -23,6 +23,7 @@ import csv
 import os
 import modeling
 import optimization
+import random
 import tokenization
 import tensorflow as tf
 tf.enable_eager_execution()
@@ -246,6 +247,8 @@ class LivedoorProcessor(DataProcessor):
                 label = tokenization.convert_to_unicode(line[idx_label])
                 examples.append(
                     InputExample(guid=guid, text_a=text_a, text_b=None, label=label))
+
+        random.shuffle(examples)
         return examples
 
 
@@ -494,6 +497,11 @@ def create_model(bert_config, is_training, input_ids, input_mask, segment_ids,
         log_probs = tf.nn.log_softmax(logits, axis=-1)
 
         one_hot_labels = tf.one_hot(labels, depth=num_labels, dtype=tf.float32)
+
+        per_label_loss = -tf.reduce_sum(one_hot_labels * log_probs, axis=0)
+        tf.summary.scalar('per_label_loss_0', per_label_loss[0])
+        tf.summary.scalar('per_label_loss_1', per_label_loss[1])
+        tf.summary.scalar('per_label_loss_2', per_label_loss[2])
 
         per_example_loss = -tf.reduce_sum(one_hot_labels * log_probs, axis=-1)
         loss = tf.reduce_mean(per_example_loss)
